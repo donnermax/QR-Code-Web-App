@@ -1,33 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AuthPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleAuth = async (type: "login" | "signup") => {
+  // Handle authentication for login or signup.
+  const handleAuth = async (type: 'login' | 'signup') => {
     setLoading(true);
     let response: any = null;
 
-    if (type === "signup") {
+    if (type === 'signup') {
       response = await supabase.auth
         .signUp({ email, password })
         .catch((err) => {
           toast({
-            title: "Error",
-            description: err.message,
-            variant: "destructive",
+            title: 'Error',
+            description: 'Sorry, there has been an issue creating your account.',
+            variant: 'destructive',
           });
           return null;
         });
@@ -35,45 +36,69 @@ export default function AuthPage() {
       response = await supabase.auth
         .signInWithPassword({ email, password })
         .catch((err) => {
-          // Instead of throwing the error, show a toast and return null.
           toast({
-            title: "Error",
-            description: "Sorry, please check your credentials and try again.",
-            variant: "destructive",
+            title: 'Error',
+            description: 'Sorry, please check your credentials and try again.',
+            variant: 'destructive',
           });
           return null;
         });
     }
 
     if (!response) {
-      // The error was handled by .catch above; simply exit.
       setLoading(false);
       return;
     }
 
-    // If Supabase returns an error object in the response, handle it here.
     if (response.error) {
-      console.log("Auth error detected:", response.error);
       toast({
-        title: "Error",
-        description: "Sorry, please check your credentials and try again.",
-        variant: "destructive",
+        title: 'Error',
+        description:
+          type === 'login'
+            ? 'Sorry, please check your credentials and try again.'
+            : 'Sorry, there has been an issue creating your account.',
+        variant: 'destructive',
       });
       setLoading(false);
       return;
     }
 
-    // If all goes well, display a success message.
     toast({
-      title: type === "signup" ? "Account created!" : "Welcome back!",
+      title: type === 'signup' ? 'Account created!' : 'Welcome back!',
       description:
-        type === "signup"
-          ? "Please check your email to verify your account."
-          : "Successfully logged in.",
+        type === 'signup'
+          ? 'Please check your email to verify your account.'
+          : 'Successfully logged in.',
     });
 
-    if (type === "login") {
-      router.push("/dashboard");
+    if (type === 'login') {
+      router.push('/dashboard');
+    }
+    setLoading(false);
+  };
+
+  // Handle password reset request.
+  const handleResetPassword = async () => {
+    if (!email) {
+      toast({
+        title: 'Info',
+        description: 'Please enter your email address first.',
+      });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'There was an issue sending the reset email. Please try again.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Reset Email Sent',
+        description: 'Please check your email for instructions to reset your password.',
+      });
     }
     setLoading(false);
   };
@@ -102,11 +127,21 @@ export default function AuthPage() {
               />
               <Button
                 className="w-full"
-                onClick={() => handleAuth("login")}
+                onClick={() => handleAuth('login')}
                 disabled={loading}
               >
-                {loading ? "Loading..." : "Login"}
+                {loading ? 'Loading...' : 'Login'}
               </Button>
+              {/* Reset Password Link */}
+              <div className="text-sm text-center mt-2">
+                <button
+                  className="underline hover:text-primary"
+                  onClick={handleResetPassword}
+                  disabled={loading}
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="signup" className="space-y-4">
@@ -125,10 +160,10 @@ export default function AuthPage() {
               />
               <Button
                 className="w-full"
-                onClick={() => handleAuth("signup")}
+                onClick={() => handleAuth('signup')}
                 disabled={loading}
               >
-                {loading ? "Loading..." : "Sign Up"}
+                {loading ? 'Loading...' : 'Sign Up'}
               </Button>
             </div>
           </TabsContent>
