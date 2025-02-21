@@ -7,12 +7,12 @@ export async function GET(
 ): Promise<NextResponse> {
   const { business, slug } = context.params;
 
-  // Optionally, filter by business as well:
+  // Optionally filter by business
   const { data: qrCode, error } = await supabase
     .from('qr_codes')
     .select('redirect_url')
     .eq('slug', slug)
-    // .eq('business', business) // uncomment if needed
+    // .eq('business', business) // Uncomment if needed
     .single();
 
   if (error || !qrCode) {
@@ -22,9 +22,8 @@ export async function GET(
   // Increment the visit counter
   await supabase.rpc('increment_visits', { slug_param: slug });
 
-  // Redirect to the target URL
   try {
-    // Construct URL based on the redirect_url and request.url base
+    // Use the request's URL as a base if needed
     return NextResponse.redirect(new URL(qrCode.redirect_url, request.url));
   } catch (e) {
     return NextResponse.redirect(new URL('/', request.url));
