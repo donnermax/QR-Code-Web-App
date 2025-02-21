@@ -1,19 +1,20 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { QrCode, Plus, ExternalLink } from 'lucide-react';
-import QRCode from 'qrcode';
+import React, { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { QrCode, Plus, ExternalLink } from "lucide-react";
+import QRCode from "qrcode";
 
 interface QRCodeData {
   id: string;
   title: string;
   slug: string;
+  business: string;
   redirect_url: string;
   visits: number;
 }
@@ -30,7 +31,7 @@ function QRCodeCanvas({ value }: { value: string }) {
             margin: 2,
           });
         } catch (err) {
-          console.error('Error generating QR code:', err);
+          console.error("Error generating QR code:", err);
         }
       }
     };
@@ -42,13 +43,14 @@ function QRCodeCanvas({ value }: { value: string }) {
 
 export default function Dashboard() {
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
-  const [title, setTitle] = useState('');
-  const [redirectUrl, setRedirectUrl] = useState('');
+  const [title, setTitle] = useState("");
+  const [redirectUrl, setRedirectUrl] = useState("");
+  const [business, setBusiness] = useState(""); // Added business state
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   useEffect(() => {
     checkUser();
@@ -56,9 +58,11 @@ export default function Dashboard() {
   }, []);
 
   const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
-      router.push('/auth');
+      router.push("/auth");
     } else {
       setUserId(session.user.id);
     }
@@ -66,15 +70,15 @@ export default function Dashboard() {
 
   const fetchQRCodes = async () => {
     const { data, error } = await supabase
-      .from('qr_codes')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .from("qr_codes")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to fetch QR codes',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to fetch QR codes",
+        variant: "destructive",
       });
     } else {
       setQrCodes(data || []);
@@ -83,56 +87,64 @@ export default function Dashboard() {
   };
 
   const generateSlug = () => {
-    return Math.random().toString(36).substring(2, 8);
+    // Generate a URL-friendly slug. This example replaces spaces with dashes and lowercases the string.
+    // You can enhance this logic if needed.
+    return title.trim().replace(/\s+/g, "-").toLowerCase();
   };
 
   const createQRCode = async () => {
-    if (!title || !redirectUrl) {
+    if (!title || !redirectUrl || !business) {
       toast({
-        title: 'Error',
-        description: 'Please fill in all fields',
-        variant: 'destructive',
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
       });
       return;
     }
 
     if (!userId) {
       toast({
-        title: 'Error',
-        description: 'Please log in again',
-        variant: 'destructive',
+        title: "Error",
+        description: "Please log in again",
+        variant: "destructive",
       });
       return;
     }
 
     const slug = generateSlug();
-    const { error } = await supabase.from('qr_codes').insert({
+
+    // Optionally, you could check for slug uniqueness before inserting.
+    // For now, the database will enforce the unique constraint and return an error if it already exists.
+
+    const { error } = await supabase.from("qr_codes").insert({
       title,
       redirect_url: redirectUrl,
       slug,
-      user_id: userId
+      business,
+      user_id: userId,
     });
 
     if (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to create QR code',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to create QR code. The slug might already exist.",
+        variant: "destructive",
       });
     } else {
       toast({
-        title: 'Success',
-        description: 'QR code created successfully',
+        title: "Success",
+        description: "QR code created successfully",
       });
-      setTitle('');
-      setRedirectUrl('');
+      setTitle("");
+      setRedirectUrl("");
+      setBusiness("");
       fetchQRCodes();
     }
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/auth');
+    router.push("/auth");
   };
 
   return (
@@ -158,6 +170,12 @@ export default function Dashboard() {
               value={redirectUrl}
               onChange={(e) => setRedirectUrl(e.target.value)}
             />
+            <Input
+              placeholder="Business Unit"
+              value={business}
+              onChange={(e) => setBusiness(e.target.value)}
+            />
+
             <Button onClick={createQRCode}>
               <Plus className="mr-2 h-4 w-4" /> Create QR Code
             </Button>
@@ -173,13 +191,20 @@ export default function Dashboard() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => window.open(qr.redirect_url, '_blank')}
+                    onClick={() =>
+                      window.open(
+                        `${baseUrl}/${qr.business}/${qr.slug}`,
+                        "_blank"
+                      )
+                    }
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="aspect-square bg-white p-4 rounded-lg flex items-center justify-center">
-                  <QRCodeCanvas value={`${baseUrl}/r/${qr.slug}`} />
+                  <QRCodeCanvas
+                    value={`${baseUrl}/${qr.business}/${qr.slug}`}
+                  />
                 </div>
                 <div className="text-sm text-muted-foreground">
                   Visits: {qr.visits}
