@@ -1,19 +1,18 @@
 import { supabase } from '@/lib/supabase';
-import { NextResponse } from 'next/server';
-export const dynamic = "force-dynamic";
+import { NextResponse, NextRequest } from 'next/server';
 
 export async function GET(
-  request: Request,
-  { params }: { params: { business: string, slug: string } }
-) {
-  const { business, slug } = params;
+  request: NextRequest,
+  context: { params: { business: string; slug: string } }
+): Promise<NextResponse> {
+  const { business, slug } = context.params;
 
-  // Optionally, you can use the business parameter in your query if needed
+  // Optionally, filter by business as well:
   const { data: qrCode, error } = await supabase
     .from('qr_codes')
     .select('redirect_url')
     .eq('slug', slug)
-    // Optionally add: .eq('business', business)
+    // .eq('business', business) // uncomment if needed
     .single();
 
   if (error || !qrCode) {
@@ -24,5 +23,10 @@ export async function GET(
   await supabase.rpc('increment_visits', { slug_param: slug });
 
   // Redirect to the target URL
-  return NextResponse.redirect(qrCode.redirect_url);
+  try {
+    // Construct URL based on the redirect_url and request.url base
+    return NextResponse.redirect(new URL(qrCode.redirect_url, request.url));
+  } catch (e) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
 }
