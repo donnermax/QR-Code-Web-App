@@ -1,9 +1,15 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse, NextRequest } from 'next/server';
+import type { ParsedUrlQuery } from 'querystring';
+
+interface Params extends ParsedUrlQuery {
+  business: string;
+  slug: string;
+}
 
 export async function GET(
   request: NextRequest,
-  context: { params: Record<string, string> }
+  context: { params: Params }
 ): Promise<NextResponse> {
   const { business, slug } = context.params;
 
@@ -11,7 +17,7 @@ export async function GET(
     .from('qr_codes')
     .select('redirect_url')
     .eq('slug', slug)
-    // .eq('business', business) // Uncomment if you want to filter by business too
+    // .eq('business', business) // Uncomment if needed
     .single();
 
   if (error || !qrCode) {
